@@ -7,6 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@4/dist/tesseract.min.js"></script>
 <style>
   :root {
     --bg: #0f0f0f;
@@ -485,6 +486,7 @@
         <p>Tocar para activar cámara</p>
       </div>
       <video id="video" autoplay playsinline style="display:none"></video>
+      <canvas id="ocr-canvas" style="display:none"></canvas>
       <div class="camera-overlay" id="camera-overlay" style="display:none">
         <div class="scan-frame"></div>
         <div class="camera-hint">APUNTÁ AL DOCUMENTO</div>
@@ -498,6 +500,7 @@
       </button>
       <button class="btn btn-outline btn-sm" id="btn-stop-cam" onclick="stopCamera()" style="display:none">✕ CERRAR</button>
     </div>
+    <div id="ocr-status" style="font-family:var(--mono);font-size:11px;color:var(--accent);text-align:center;margin-bottom:10px;display:none">Procesando OCR...</div>
   </div>
 
   <div class="section-label">DATOS DEL DOCUMENTO</div>
@@ -610,6 +613,7 @@
 
 <script>
 // ── CONFIG ──
+const SHEETS_WEBHOOK = 'https://script.google.com/macros/s/AKfycbysIy5oMekqGbxEylIffKphRocUuUZGE01YyHd4GcF7zh3m_0NuyRRLfJ7HAMSl9A2b_Q/exec';
 // Pegá acá la URL de tu Apps Script Web App deployment:
 const SHEETS_WEBHOOK = localStorage.getItem('docscan_webhook') || '';
 
@@ -663,12 +667,70 @@ function stopCamera() {
   document.getElementById('btn-stop-cam').style.display = 'none';
 }
 
+async function captureAndFill() {
 function captureAndFill() {
   // Flash effect
   const flash = document.getElementById('flash');
   flash.classList.add('go');
   setTimeout(() => flash.classList.remove('go'), 150);
 
+  const video = document.getElementById('video');
+  const canvas = document.getElementById('ocr-canvas');
+  canvas.width = video.videoWidth;
+  canvas.height = video.videoHeight;
+  canvas.getContext('2d').drawImage(video, 0, 0);
+
+  stopCamera();
+
+  const ocrStatus = document.getElementById('ocr-status');
+  ocrStatus.style.display = 'block';
+  ocrStatus.textContent = 'Leyendo documento...';
+
+  try {
+    const { data: { text } } = await Tesseract.recognize(canvas, 'spa+eng', {
+      logger: m => { if (m.status === 'recognizing text') ocrStatus.textContent = `OCR ${Math.round(m.progress * 100)}%...`; }
+    });
+    fillFromOCR(text);
+  } catch(e) {
+    showToast('OCR falló — completá manualmente');
+  } finally {
+    ocrStatus.style.display = 'none';
+  }
+
+  if (!document.getElementById('f-fecha').value) {
+    document.getElementById('f-fecha').value = new Date().toISOString().split('T')[0];
+  }
+}
+
+function fillFromOCR(text) {
+  // Fecha: "Emitida el: DD/MM/YYYY"
+  const fechaMatch = text.match(/emitida\s+el[:\s]+(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](\d{2,4})/i);
+  if (fechaMatch && !document.getElementById('f-fecha').value) {
+    let [, d, m, y] = fechaMatch;
+    if (y.length === 2) y = '20' + y;
+    document.getElementById('f-fecha').value = `${y}-${m.padStart(2,'0')}-${d.padStart(2,'0')}`;
+  }
+
+  // Num Orden: "#XXXXX"
+  const ordenMatch = text.match(/#(\d+)/);
+  if (ordenMatch && !document.getElementById('f-orden').value) {
+    document.getElementById('f-orden').value = '#' + ordenMatch[1].trim();
+  }
+
+  // Lote: número de 6 dígitos
+  const loteMatch = text.match(/(?:lote|lot|batch)[:\s#]*(\d{6})/i);
+  if (loteMatch && !document.getElementById('f-lote').value) {
+    document.getElementById('f-lote').value = loteMatch[1].trim();
+  }
+
+  // Producto: código numérico
+  const productoMatch = text.match(/producto[:\s]+(\d+)/i);
+  if (productoMatch && !document.getElementById('f-producto').value) {
+    document.getElementById('f-producto').value = productoMatch[1].trim();
+  }
+
+  const filled = ['f-fecha','f-orden','f-lote','f-producto'].filter(id => document.getElementById(id).value).length;
+  showToast(filled > 0 ? `OCR: ${filled} campo(s) detectado(s) ✓` : 'Sin datos detectados — completá manualmente', filled > 0);
   // Set today's date automatically
   const today = new Date().toISOString().split('T')[0];
   if (!document.getElementById('f-fecha').value) {
@@ -794,6 +856,7 @@ function renderExport() {
 
 // ── SYNC TO GOOGLE SHEETS ──
 async function syncSheets() {
+  const webhook = SHEETS_WEBHOOK;
   const webhook = localStorage.getItem('docscan_webhook') || '';
   if (!webhook) {
     showToast('Primero configurá la URL del webhook');
@@ -908,6 +971,8 @@ function showToast(msg, success = false) {
 
 // ── INIT ──
 updateHeader();
+document.getElementById('webhook-url').value = SHEETS_WEBHOOK;
+document.getElementById('webhook-status').textContent = 'Webhook configurado ✓';
 const savedWebhook = localStorage.getItem('docscan_webhook');
 if (savedWebhook) {
   document.getElementById('webhook-url').value = savedWebhook;
