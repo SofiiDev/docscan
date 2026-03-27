@@ -816,7 +816,7 @@ async function syncSheets() {
       await fetch(webhook, {
         method: 'POST',
         mode: 'no-cors',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'text/plain' },
         body: JSON.stringify({
           fecha: formatDate(r.fecha),
           orden: r.orden,
