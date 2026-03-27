@@ -614,6 +614,8 @@
 <script>
 // ── CONFIG ──
 const SHEETS_WEBHOOK = 'https://script.google.com/macros/s/AKfycbysIy5oMekqGbxEylIffKphRocUuUZGE01YyHd4GcF7zh3m_0NuyRRLfJ7HAMSl9A2b_Q/exec';
+// Pegá acá la URL de tu Apps Script Web App deployment:
+const SHEETS_WEBHOOK = localStorage.getItem('docscan_webhook') || '';
 
 // ── STATE ──
 let records = JSON.parse(localStorage.getItem('docscan_records') || '[]');
@@ -666,6 +668,8 @@ function stopCamera() {
 }
 
 async function captureAndFill() {
+function captureAndFill() {
+  // Flash effect
   const flash = document.getElementById('flash');
   flash.classList.add('go');
   setTimeout(() => flash.classList.remove('go'), 150);
@@ -727,6 +731,13 @@ function fillFromOCR(text) {
 
   const filled = ['f-fecha','f-orden','f-lote','f-producto'].filter(id => document.getElementById(id).value).length;
   showToast(filled > 0 ? `OCR: ${filled} campo(s) detectado(s) ✓` : 'Sin datos detectados — completá manualmente', filled > 0);
+  // Set today's date automatically
+  const today = new Date().toISOString().split('T')[0];
+  if (!document.getElementById('f-fecha').value) {
+    document.getElementById('f-fecha').value = today;
+  }
+  showToast('Foto capturada — completá los campos restantes');
+  stopCamera();
 }
 
 // ── FORM ──
@@ -846,6 +857,13 @@ function renderExport() {
 // ── SYNC TO GOOGLE SHEETS ──
 async function syncSheets() {
   const webhook = SHEETS_WEBHOOK;
+  const webhook = localStorage.getItem('docscan_webhook') || '';
+  if (!webhook) {
+    showToast('Primero configurá la URL del webhook');
+    switchTab('export');
+    document.getElementById('webhook-url').focus();
+    return;
+  }
   if (records.length === 0) {
     showToast('No hay registros para sincronizar');
     return;
@@ -955,6 +973,11 @@ function showToast(msg, success = false) {
 updateHeader();
 document.getElementById('webhook-url').value = SHEETS_WEBHOOK;
 document.getElementById('webhook-status').textContent = 'Webhook configurado ✓';
+const savedWebhook = localStorage.getItem('docscan_webhook');
+if (savedWebhook) {
+  document.getElementById('webhook-url').value = savedWebhook;
+  document.getElementById('webhook-status').textContent = 'Webhook configurado';
+}
 </script>
 </body>
 </html>
