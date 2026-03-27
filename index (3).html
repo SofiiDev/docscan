@@ -1,0 +1,918 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>DocScan — Archivo de Producción</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  :root {
+    --bg: #0f0f0f;
+    --surface: #1a1a1a;
+    --surface2: #242424;
+    --border: #2e2e2e;
+    --accent: #c8f04a;
+    --accent-dim: #a0c032;
+    --text: #f0f0f0;
+    --text-muted: #888;
+    --text-dim: #555;
+    --danger: #ff5252;
+    --success: #c8f04a;
+    --mono: 'IBM Plex Mono', monospace;
+    --sans: 'IBM Plex Sans', sans-serif;
+    --radius: 10px;
+    --radius-sm: 6px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+  body {
+    font-family: var(--sans);
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    min-height: 100dvh;
+    display: flex;
+    flex-direction: column;
+    max-width: 480px;
+    margin: 0 auto;
+    position: relative;
+    overflow-x: hidden;
+  }
+
+  /* ── HEADER ── */
+  .app-header {
+    padding: 20px 20px 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-shrink: 0;
+  }
+  .app-logo {
+    font-family: var(--mono);
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--accent);
+    letter-spacing: -0.5px;
+  }
+  .app-logo span { color: var(--text-muted); font-weight: 400; }
+  .counter-badge {
+    font-family: var(--mono);
+    font-size: 11px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--text-muted);
+    padding: 4px 10px;
+    border-radius: 20px;
+  }
+  .counter-badge strong { color: var(--accent); }
+
+  /* ── TABS ── */
+  .tabs {
+    display: flex;
+    gap: 4px;
+    padding: 16px 20px 0;
+    flex-shrink: 0;
+  }
+  .tab {
+    flex: 1;
+    padding: 9px 0;
+    background: transparent;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    color: var(--text-muted);
+    font-family: var(--mono);
+    font-size: 11px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.15s;
+    text-align: center;
+  }
+  .tab.active {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #0f0f0f;
+  }
+  .tab:not(.active):hover { border-color: #555; color: var(--text); }
+
+  /* ── SCREENS ── */
+  .screen { display: none; flex: 1; overflow-y: auto; padding: 16px 20px 90px; }
+  .screen.active { display: block; }
+
+  /* ── CAMERA SECTION ── */
+  .camera-wrapper {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+    position: relative;
+    margin-bottom: 16px;
+  }
+  #video {
+    width: 100%;
+    display: block;
+    aspect-ratio: 4/3;
+    object-fit: cover;
+    background: #000;
+  }
+  .camera-overlay {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+  }
+  .scan-frame {
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    width: 75%; height: 55%;
+    border: 1.5px solid rgba(200, 240, 74, 0.6);
+    border-radius: 6px;
+  }
+  .scan-frame::before {
+    content: '';
+    position: absolute;
+    top: -1px; left: -1px; right: -1px;
+    height: 2px;
+    background: var(--accent);
+    animation: scanLine 2s ease-in-out infinite;
+    border-radius: 2px;
+  }
+  @keyframes scanLine {
+    0%, 100% { top: -1px; }
+    50% { top: calc(100% - 1px); }
+  }
+  .camera-hint {
+    position: absolute;
+    bottom: 10px; left: 0; right: 0;
+    text-align: center;
+    font-family: var(--mono);
+    font-size: 10px;
+    color: rgba(200,240,74,0.7);
+    letter-spacing: 0.5px;
+  }
+  .camera-inactive {
+    aspect-ratio: 4/3;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    background: var(--surface);
+    cursor: pointer;
+  }
+  .camera-inactive svg { opacity: 0.4; }
+  .camera-inactive p { font-size: 13px; color: var(--text-muted); font-family: var(--mono); }
+
+  /* ── BUTTONS ── */
+  .btn {
+    width: 100%;
+    padding: 13px;
+    border: none;
+    border-radius: var(--radius);
+    font-family: var(--mono);
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    letter-spacing: 0.3px;
+  }
+  .btn:active { transform: scale(0.98); }
+  .btn-accent { background: var(--accent); color: #0f0f0f; }
+  .btn-accent:hover { background: #d4f55a; }
+  .btn-outline {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text-muted);
+  }
+  .btn-outline:hover { border-color: #555; color: var(--text); }
+  .btn-danger { background: transparent; border: 1px solid var(--danger); color: var(--danger); }
+  .btn-sm {
+    padding: 7px 14px;
+    font-size: 11px;
+    width: auto;
+    border-radius: var(--radius-sm);
+  }
+  .btn-gap { margin-top: 8px; }
+
+  /* ── FORM ── */
+  .section-label {
+    font-family: var(--mono);
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--text-dim);
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    margin-bottom: 10px;
+  }
+  .field { margin-bottom: 12px; }
+  .field label {
+    display: block;
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--text-muted);
+    letter-spacing: 0.8px;
+    margin-bottom: 5px;
+    text-transform: uppercase;
+  }
+  .field input {
+    width: 100%;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 11px 13px;
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 14px;
+    outline: none;
+    transition: border-color 0.15s;
+  }
+  .field input:focus { border-color: var(--accent); }
+  .field input::placeholder { color: var(--text-dim); }
+  .field input[type="date"] { color-scheme: dark; }
+
+  /* ── RECORDS LIST ── */
+  .records-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 14px;
+  }
+  .record-count {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text-muted);
+  }
+  .record-item {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 13px 14px;
+    margin-bottom: 8px;
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    position: relative;
+    animation: slideIn 0.2s ease;
+  }
+  @keyframes slideIn {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .record-num {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--text-dim);
+    min-width: 24px;
+    padding-top: 2px;
+  }
+  .record-body { flex: 1; min-width: 0; }
+  .record-product {
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin-bottom: 5px;
+  }
+  .record-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .tag {
+    font-family: var(--mono);
+    font-size: 10px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--text-muted);
+    padding: 2px 7px;
+    border-radius: 4px;
+  }
+  .tag.accent { background: rgba(200, 240, 74, 0.1); border-color: rgba(200,240,74,0.3); color: var(--accent); }
+  .record-delete {
+    background: transparent;
+    border: none;
+    color: var(--text-dim);
+    cursor: pointer;
+    padding: 2px 4px;
+    border-radius: 4px;
+    font-size: 16px;
+    line-height: 1;
+    transition: color 0.15s;
+    flex-shrink: 0;
+  }
+  .record-delete:hover { color: var(--danger); }
+
+  .empty-state {
+    text-align: center;
+    padding: 48px 0;
+  }
+  .empty-state svg { opacity: 0.2; margin-bottom: 12px; }
+  .empty-state p { font-family: var(--mono); font-size: 12px; color: var(--text-dim); }
+
+  /* ── EXPORT ── */
+  .export-stats {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    margin-bottom: 20px;
+  }
+  .stat-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 14px;
+    text-align: center;
+  }
+  .stat-num {
+    font-family: var(--mono);
+    font-size: 28px;
+    font-weight: 600;
+    color: var(--accent);
+    line-height: 1;
+    margin-bottom: 4px;
+  }
+  .stat-lbl { font-size: 11px; color: var(--text-muted); }
+
+  .export-preview {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+    margin-bottom: 16px;
+  }
+  .preview-header {
+    display: grid;
+    grid-template-columns: 1.2fr 1fr 0.8fr 1.5fr;
+    background: var(--surface2);
+    border-bottom: 1px solid var(--border);
+    padding: 8px 12px;
+    gap: 8px;
+  }
+  .preview-header span {
+    font-family: var(--mono);
+    font-size: 9px;
+    font-weight: 600;
+    color: var(--accent);
+    letter-spacing: 0.8px;
+    text-transform: uppercase;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .preview-row {
+    display: grid;
+    grid-template-columns: 1.2fr 1fr 0.8fr 1.5fr;
+    padding: 7px 12px;
+    gap: 8px;
+    border-bottom: 1px solid var(--border);
+  }
+  .preview-row:last-child { border-bottom: none; }
+  .preview-row span {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--text-muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .preview-more {
+    text-align: center;
+    padding: 8px;
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--text-dim);
+  }
+
+  /* ── TOAST ── */
+  .toast {
+    position: fixed;
+    bottom: 80px;
+    left: 50%;
+    transform: translateX(-50%) translateY(20px);
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 10px 18px;
+    border-radius: 20px;
+    font-family: var(--mono);
+    font-size: 12px;
+    white-space: nowrap;
+    opacity: 0;
+    transition: all 0.25s;
+    z-index: 100;
+    pointer-events: none;
+  }
+  .toast.success { border-color: rgba(200,240,74,0.4); }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  /* ── BOTTOM NAV ── */
+  .bottom-nav {
+    position: fixed;
+    bottom: 0; left: 50%;
+    transform: translateX(-50%);
+    width: 100%;
+    max-width: 480px;
+    background: rgba(15,15,15,0.95);
+    border-top: 1px solid var(--border);
+    display: flex;
+    padding: 10px 20px 16px;
+    gap: 6px;
+    z-index: 50;
+    backdrop-filter: blur(10px);
+  }
+  .nav-btn {
+    flex: 1;
+    padding: 9px 6px;
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: var(--radius-sm);
+    color: var(--text-dim);
+    font-family: var(--mono);
+    font-size: 10px;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    transition: all 0.15s;
+  }
+  .nav-btn.active { color: var(--accent); border-color: rgba(200,240,74,0.2); background: rgba(200,240,74,0.05); }
+  .nav-btn svg { width: 18px; height: 18px; }
+
+  /* ── DIVIDER ── */
+  .divider { height: 1px; background: var(--border); margin: 16px 0; }
+
+  /* ── CAPTURE ANIMATION ── */
+  .flash {
+    position: fixed; inset: 0;
+    background: #fff;
+    opacity: 0;
+    pointer-events: none;
+    z-index: 200;
+    transition: opacity 0.1s;
+  }
+  .flash.go { opacity: 0.6; }
+</style>
+</head>
+<body>
+
+<div class="app-header">
+  <div class="app-logo">DOC<span>SCAN</span></div>
+  <div class="counter-badge"><strong id="header-count">0</strong> registros</div>
+</div>
+
+<div class="tabs">
+  <button class="tab active" onclick="switchTab('scan')">[ ESCANEAR ]</button>
+  <button class="tab" onclick="switchTab('list')">[ REGISTROS ]</button>
+  <button class="tab" onclick="switchTab('export')">[ EXPORTAR ]</button>
+</div>
+
+<!-- ═══ SCREEN: SCAN ═══ -->
+<div class="screen active" id="screen-scan">
+
+  <div style="margin-top:14px">
+    <div class="camera-wrapper" id="camera-wrapper">
+      <div class="camera-inactive" id="camera-inactive" onclick="startCamera()">
+        <svg width="40" height="40" viewBox="0 0 24 24" fill="none"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z" stroke="#f0f0f0" stroke-width="1.5"/><circle cx="12" cy="13" r="4" stroke="#f0f0f0" stroke-width="1.5"/></svg>
+        <p>Tocar para activar cámara</p>
+      </div>
+      <video id="video" autoplay playsinline style="display:none"></video>
+      <div class="camera-overlay" id="camera-overlay" style="display:none">
+        <div class="scan-frame"></div>
+        <div class="camera-hint">APUNTÁ AL DOCUMENTO</div>
+      </div>
+    </div>
+
+    <div style="display:flex;gap:8px;margin-bottom:20px" id="camera-controls" style="display:none">
+      <button class="btn btn-accent" id="btn-capture" onclick="captureAndFill()" style="display:none">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="#0f0f0f" stroke-width="2"/><circle cx="12" cy="12" r="4" fill="#0f0f0f"/></svg>
+        CAPTURAR
+      </button>
+      <button class="btn btn-outline btn-sm" id="btn-stop-cam" onclick="stopCamera()" style="display:none">✕ CERRAR</button>
+    </div>
+  </div>
+
+  <div class="section-label">DATOS DEL DOCUMENTO</div>
+
+  <div class="field">
+    <label>FECHA EMISIÓN</label>
+    <input type="date" id="f-fecha" />
+  </div>
+  <div class="field">
+    <label>NUM. ORDEN</label>
+    <input type="text" id="f-orden" placeholder="OP-2025-0001" />
+  </div>
+  <div class="field">
+    <label>LOTE</label>
+    <input type="text" id="f-lote" placeholder="LOT-0001" />
+  </div>
+  <div class="field">
+    <label>PRODUCTO</label>
+    <input type="text" id="f-producto" placeholder="Nombre del producto" />
+  </div>
+
+  <button class="btn btn-accent" onclick="saveRecord()">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z" stroke="#0f0f0f" stroke-width="2"/><polyline points="17 21 17 13 7 13 7 21" stroke="#0f0f0f" stroke-width="2"/><polyline points="7 3 7 8 15 8" stroke="#0f0f0f" stroke-width="2"/></svg>
+    GUARDAR REGISTRO
+  </button>
+  <button class="btn btn-outline btn-gap" onclick="clearForm()">LIMPIAR CAMPOS</button>
+</div>
+
+<!-- ═══ SCREEN: LIST ═══ -->
+<div class="screen" id="screen-list">
+  <div style="margin-top:14px">
+    <div class="records-toolbar">
+      <span class="record-count" id="list-count">0 documentos</span>
+      <button class="btn btn-outline btn-sm" onclick="clearAll()" id="btn-clear-all" style="display:none;border-color:#ff5252;color:#ff5252">BORRAR TODO</button>
+    </div>
+    <div id="records-container">
+      <div class="empty-state">
+        <svg width="40" height="40" viewBox="0 0 24 24" fill="none"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" stroke="#f0f0f0" stroke-width="1.5"/><polyline points="14 2 14 8 20 8" stroke="#f0f0f0" stroke-width="1.5"/><line x1="16" y1="13" x2="8" y2="13" stroke="#f0f0f0" stroke-width="1.5"/><line x1="16" y1="17" x2="8" y2="17" stroke="#f0f0f0" stroke-width="1.5"/></svg>
+        <p>Sin registros aún</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ SCREEN: EXPORT ═══ -->
+<div class="screen" id="screen-export">
+  <div style="margin-top:14px">
+    <div class="export-stats">
+      <div class="stat-card">
+        <div class="stat-num" id="exp-count">0</div>
+        <div class="stat-lbl">Documentos</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-num" id="exp-month">0</div>
+        <div class="stat-lbl">Este mes</div>
+      </div>
+    </div>
+
+    <div class="section-label">PREVISUALIZACIÓN EXCEL</div>
+    <div class="export-preview">
+      <div class="preview-header">
+        <span>FECHA EMISION</span>
+        <span>NUM ORDEN</span>
+        <span>LOTE</span>
+        <span>PRODUCTO</span>
+      </div>
+      <div id="preview-rows">
+        <div class="preview-more">Sin datos aún</div>
+      </div>
+    </div>
+
+    <button class="btn btn-accent" onclick="syncSheets()" id="btn-sheets" style="margin-bottom:8px">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M4 4h16v16H4z" stroke="#0f0f0f" stroke-width="0"/><rect x="3" y="3" width="18" height="18" rx="3" fill="#0f0f0f" opacity=".08"/><path d="M9 3H5a2 2 0 00-2 2v4m6-6h10a2 2 0 012 2v4M9 3v18m0 0h10a2 2 0 002-2V9M9 21H5a2 2 0 01-2-2V9m0 0h18" stroke="#0f0f0f" stroke-width="1.8"/></svg>
+      SINCRONIZAR CON GOOGLE SHEETS
+    </button>
+    <button class="btn btn-outline" onclick="exportExcel()" id="btn-export">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" stroke="currentColor" stroke-width="2"/><polyline points="7 10 12 15 17 10" stroke="currentColor" stroke-width="2"/><line x1="12" y1="15" x2="12" y2="3" stroke="currentColor" stroke-width="2"/></svg>
+      DESCARGAR EXCEL (backup)
+    </button>
+
+    <div class="divider"></div>
+    <div class="section-label">CONFIGURACIÓN WEBHOOK</div>
+    <div class="field">
+      <label>URL DEL APPS SCRIPT</label>
+      <input type="url" id="webhook-url" placeholder="https://script.google.com/macros/s/..." style="font-size:11px" />
+    </div>
+    <button class="btn btn-outline" onclick="saveWebhook()" style="margin-bottom:4px">GUARDAR URL</button>
+    <div id="webhook-status" style="font-family:var(--mono);font-size:11px;color:var(--text-muted);text-align:center;margin-top:6px"></div>
+  </div>
+</div>
+
+<!-- Bottom Nav -->
+<nav class="bottom-nav">
+  <button class="nav-btn active" id="nav-scan" onclick="switchTab('scan')">
+    <svg viewBox="0 0 24 24" fill="none"><rect x="3" y="3" width="7" height="7" rx="1" stroke="currentColor" stroke-width="1.5"/><rect x="14" y="3" width="7" height="7" rx="1" stroke="currentColor" stroke-width="1.5"/><rect x="3" y="14" width="7" height="7" rx="1" stroke="currentColor" stroke-width="1.5"/><circle cx="17.5" cy="17.5" r="3.5" stroke="currentColor" stroke-width="1.5"/></svg>
+    SCAN
+  </button>
+  <button class="nav-btn" id="nav-list" onclick="switchTab('list')">
+    <svg viewBox="0 0 24 24" fill="none"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+    LISTA
+  </button>
+  <button class="nav-btn" id="nav-export" onclick="switchTab('export')">
+    <svg viewBox="0 0 24 24" fill="none"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" stroke="currentColor" stroke-width="2"/><polyline points="7 10 12 15 17 10" stroke="currentColor" stroke-width="2"/><line x1="12" y1="15" x2="12" y2="3" stroke="currentColor" stroke-width="2"/></svg>
+    EXCEL
+  </button>
+</nav>
+
+<div class="toast" id="toast"></div>
+<div class="flash" id="flash"></div>
+
+<script>
+// ── CONFIG ──
+// Pegá acá la URL de tu Apps Script Web App deployment:
+const SHEETS_WEBHOOK = localStorage.getItem('docscan_webhook') || '';
+
+// ── STATE ──
+let records = JSON.parse(localStorage.getItem('docscan_records') || '[]');
+let stream = null;
+
+// ── TABS ──
+function switchTab(tab) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('screen-' + tab).classList.add('active');
+  document.getElementById('nav-' + tab).classList.add('active');
+  const tabs = ['scan','list','export'];
+  document.querySelectorAll('.tab')[tabs.indexOf(tab)].classList.add('active');
+  if (tab === 'list') renderList();
+  if (tab === 'export') renderExport();
+  if (tab !== 'scan') stopCamera();
+}
+
+// ── CAMERA ──
+async function startCamera() {
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 960 } }
+    });
+    const video = document.getElementById('video');
+    video.srcObject = stream;
+    video.style.display = 'block';
+    document.getElementById('camera-inactive').style.display = 'none';
+    document.getElementById('camera-overlay').style.display = 'block';
+    document.getElementById('btn-capture').style.display = 'flex';
+    document.getElementById('btn-stop-cam').style.display = 'flex';
+  } catch(e) {
+    showToast('Cámara no disponible — ingresá los datos manualmente');
+  }
+}
+
+function stopCamera() {
+  if (stream) {
+    stream.getTracks().forEach(t => t.stop());
+    stream = null;
+  }
+  const video = document.getElementById('video');
+  video.style.display = 'none';
+  video.srcObject = null;
+  document.getElementById('camera-inactive').style.display = 'flex';
+  document.getElementById('camera-overlay').style.display = 'none';
+  document.getElementById('btn-capture').style.display = 'none';
+  document.getElementById('btn-stop-cam').style.display = 'none';
+}
+
+function captureAndFill() {
+  // Flash effect
+  const flash = document.getElementById('flash');
+  flash.classList.add('go');
+  setTimeout(() => flash.classList.remove('go'), 150);
+
+  // Set today's date automatically
+  const today = new Date().toISOString().split('T')[0];
+  if (!document.getElementById('f-fecha').value) {
+    document.getElementById('f-fecha').value = today;
+  }
+  showToast('Foto capturada — completá los campos restantes');
+  stopCamera();
+}
+
+// ── FORM ──
+function clearForm() {
+  ['f-fecha','f-orden','f-lote','f-producto'].forEach(id => {
+    document.getElementById(id).value = '';
+  });
+}
+
+function saveRecord() {
+  const fecha   = document.getElementById('f-fecha').value;
+  const orden   = document.getElementById('f-orden').value.trim();
+  const lote    = document.getElementById('f-lote').value.trim();
+  const producto = document.getElementById('f-producto').value.trim();
+
+  if (!fecha || !orden || !lote || !producto) {
+    showToast('Completá todos los campos');
+    return;
+  }
+
+  const record = {
+    id: Date.now(),
+    fecha,
+    orden,
+    lote,
+    producto,
+    ts: new Date().toISOString()
+  };
+
+  records.unshift(record);
+  save();
+  clearForm();
+  updateHeader();
+  showToast('Registro guardado ✓', true);
+}
+
+function deleteRecord(id) {
+  records = records.filter(r => r.id !== id);
+  save();
+  renderList();
+  updateHeader();
+}
+
+function clearAll() {
+  if (confirm('¿Borrar todos los registros?')) {
+    records = [];
+    save();
+    renderList();
+    updateHeader();
+  }
+}
+
+function save() {
+  localStorage.setItem('docscan_records', JSON.stringify(records));
+}
+
+function updateHeader() {
+  document.getElementById('header-count').textContent = records.length;
+}
+
+// ── RENDER LIST ──
+function renderList() {
+  const container = document.getElementById('records-container');
+  document.getElementById('list-count').textContent = records.length + ' documento' + (records.length !== 1 ? 's' : '');
+  document.getElementById('btn-clear-all').style.display = records.length > 0 ? 'flex' : 'none';
+
+  if (records.length === 0) {
+    container.innerHTML = `<div class="empty-state">
+      <svg width="40" height="40" viewBox="0 0 24 24" fill="none"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" stroke="#f0f0f0" stroke-width="1.5"/><polyline points="14 2 14 8 20 8" stroke="#f0f0f0" stroke-width="1.5"/><line x1="16" y1="13" x2="8" y2="13" stroke="#f0f0f0" stroke-width="1.5"/></svg>
+      <p>Sin registros aún</p>
+    </div>`;
+    return;
+  }
+
+  container.innerHTML = records.map((r, i) => `
+    <div class="record-item">
+      <div class="record-num">${String(records.length - i).padStart(2,'0')}</div>
+      <div class="record-body">
+        <div class="record-product">${escHtml(r.producto)}</div>
+        <div class="record-meta">
+          <span class="tag accent">${formatDate(r.fecha)}</span>
+          <span class="tag">${escHtml(r.orden)}</span>
+          <span class="tag">${escHtml(r.lote)}</span>
+        </div>
+      </div>
+      <button class="record-delete" onclick="deleteRecord(${r.id})" title="Eliminar">✕</button>
+    </div>
+  `).join('');
+}
+
+// ── RENDER EXPORT ──
+function renderExport() {
+  document.getElementById('exp-count').textContent = records.length;
+  const thisMonth = new Date().toISOString().slice(0,7);
+  const monthCount = records.filter(r => r.fecha.startsWith(thisMonth)).length;
+  document.getElementById('exp-month').textContent = monthCount;
+
+  const preview = document.getElementById('preview-rows');
+  if (records.length === 0) {
+    preview.innerHTML = '<div class="preview-more">Sin datos aún</div>';
+    return;
+  }
+  const show = records.slice(0, 4);
+  let html = show.map(r => `
+    <div class="preview-row">
+      <span>${formatDate(r.fecha)}</span>
+      <span>${escHtml(r.orden)}</span>
+      <span>${escHtml(r.lote)}</span>
+      <span>${escHtml(r.producto)}</span>
+    </div>`).join('');
+  if (records.length > 4) {
+    html += `<div class="preview-more">+ ${records.length - 4} filas más</div>`;
+  }
+  preview.innerHTML = html;
+}
+
+// ── SYNC TO GOOGLE SHEETS ──
+async function syncSheets() {
+  const webhook = localStorage.getItem('docscan_webhook') || '';
+  if (!webhook) {
+    showToast('Primero configurá la URL del webhook');
+    switchTab('export');
+    document.getElementById('webhook-url').focus();
+    return;
+  }
+  if (records.length === 0) {
+    showToast('No hay registros para sincronizar');
+    return;
+  }
+
+  const btn = document.getElementById('btn-sheets');
+  btn.textContent = 'SINCRONIZANDO...';
+  btn.disabled = true;
+
+  let ok = 0, errors = 0;
+  for (const r of records) {
+    try {
+      await fetch(webhook, {
+        method: 'POST',
+        mode: 'no-cors',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          fecha: formatDate(r.fecha),
+          orden: r.orden,
+          lote: r.lote,
+          producto: r.producto
+        })
+      });
+      ok++;
+    } catch(e) {
+      errors++;
+    }
+    await new Promise(res => setTimeout(res, 200));
+  }
+
+  btn.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M9 3H5a2 2 0 00-2 2v4m6-6h10a2 2 0 012 2v4M9 3v18m0 0h10a2 2 0 002-2V9M9 21H5a2 2 0 01-2-2V9m0 0h18" stroke="#0f0f0f" stroke-width="1.8"/></svg> SINCRONIZAR CON GOOGLE SHEETS`;
+  btn.disabled = false;
+
+  if (errors === 0) {
+    showToast(`${ok} registros enviados a Sheets ✓`, true);
+    document.getElementById('webhook-status').textContent = `Última sync: ${new Date().toLocaleTimeString('es-AR')} · ${ok} filas`;
+  } else {
+    showToast(`${ok} enviados, ${errors} con error`);
+  }
+}
+
+function saveWebhook() {
+  const url = document.getElementById('webhook-url').value.trim();
+  if (!url.startsWith('https://script.google.com')) {
+    showToast('URL inválida — debe ser de script.google.com');
+    return;
+  }
+  localStorage.setItem('docscan_webhook', url);
+  document.getElementById('webhook-status').textContent = 'URL guardada ✓';
+  showToast('Webhook configurado ✓', true);
+}
+
+
+function exportExcel() {
+  if (records.length === 0) {
+    showToast('No hay registros para exportar');
+    return;
+  }
+
+  const header = [['FECHA EMISION', 'NUM ORDEN', 'LOTE', 'PRODUCTO']];
+  const rows = records.map(r => [
+    formatDate(r.fecha),
+    r.orden,
+    r.lote,
+    r.producto
+  ]);
+
+  const wsData = [...header, ...rows];
+  const ws = XLSX.utils.aoa_to_sheet(wsData);
+
+  // Column widths
+  ws['!cols'] = [
+    { wch: 16 },
+    { wch: 18 },
+    { wch: 14 },
+    { wch: 30 }
+  ];
+
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Registros');
+
+  const fecha = new Date().toISOString().slice(0,10);
+  XLSX.writeFile(wb, `docscan_${fecha}.xlsx`);
+  showToast('Excel descargado ✓', true);
+}
+
+// ── UTILS ──
+function formatDate(iso) {
+  if (!iso) return '';
+  const [y,m,d] = iso.split('-');
+  return `${d}/${m}/${y}`;
+}
+
+function escHtml(str) {
+  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function showToast(msg, success = false) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast' + (success ? ' success' : '');
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2200);
+}
+
+// ── INIT ──
+updateHeader();
+const savedWebhook = localStorage.getItem('docscan_webhook');
+if (savedWebhook) {
+  document.getElementById('webhook-url').value = savedWebhook;
+  document.getElementById('webhook-status').textContent = 'Webhook configurado';
+}
+</script>
+</body>
+</html>
