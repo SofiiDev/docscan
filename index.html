@@ -614,8 +614,6 @@
 <script>
 // ── CONFIG ──
 const SHEETS_WEBHOOK = 'https://script.google.com/macros/s/AKfycbysIy5oMekqGbxEylIffKphRocUuUZGE01YyHd4GcF7zh3m_0NuyRRLfJ7HAMSl9A2b_Q/exec';
-// Pegá acá la URL de tu Apps Script Web App deployment:
-const SHEETS_WEBHOOK = localStorage.getItem('docscan_webhook') || '';
 
 // ── STATE ──
 let records = JSON.parse(localStorage.getItem('docscan_records') || '[]');
