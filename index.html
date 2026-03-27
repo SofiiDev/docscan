@@ -637,19 +637,36 @@ function switchTab(tab) {
 
 // ── CAMERA ──
 async function startCamera() {
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    showToast('Este navegador no soporta cámara — usá Chrome o Safari');
+    return;
+  }
   try {
-    stream = await navigator.mediaDevices.getUserMedia({
-      video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 960 } }
-    });
+    // Intentá con cámara trasera primero
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: { ideal: 'environment' } }
+      });
+    } catch(e1) {
+      // Fallback: cualquier cámara disponible
+      stream = await navigator.mediaDevices.getUserMedia({ video: true });
+    }
     const video = document.getElementById('video');
     video.srcObject = stream;
+    await video.play();
     video.style.display = 'block';
     document.getElementById('camera-inactive').style.display = 'none';
     document.getElementById('camera-overlay').style.display = 'block';
     document.getElementById('btn-capture').style.display = 'flex';
     document.getElementById('btn-stop-cam').style.display = 'flex';
   } catch(e) {
-    showToast('Cámara no disponible — ingresá los datos manualmente');
+    if (e.name === 'NotAllowedError') {
+      showToast('Permiso de cámara denegado — habilitalo en el navegador');
+    } else if (e.name === 'NotFoundError') {
+      showToast('No se encontró cámara en este dispositivo');
+    } else {
+      showToast('Error de cámara: ' + e.message);
+    }
   }
 }
 
