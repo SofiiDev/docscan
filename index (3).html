@@ -713,14 +713,14 @@ function fillFromOCR(text) {
     document.getElementById('f-orden').value = '#' + ordenMatch[1].trim();
   }
 
-  // Lote
-  const loteMatch = text.match(/(?:lote|lot|batch)[:\s#]*([A-Z0-9\-\/]+)/i);
+  // Lote: número de 6 dígitos
+  const loteMatch = text.match(/(?:lote|lot|batch)[:\s#]*(\d{6})/i);
   if (loteMatch && !document.getElementById('f-lote').value) {
     document.getElementById('f-lote').value = loteMatch[1].trim();
   }
 
-  // Producto: código tipo XXX-XXXXXX
-  const productoMatch = text.match(/\b([A-Z]{2,}-[A-Z0-9]{4,})\b/);
+  // Producto: código numérico
+  const productoMatch = text.match(/producto[:\s]+(\d+)/i);
   if (productoMatch && !document.getElementById('f-producto').value) {
     document.getElementById('f-producto').value = productoMatch[1].trim();
   }
