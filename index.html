@@ -877,16 +877,15 @@ async function syncSheets() {
   let ok = 0, errors = 0;
   for (const r of records) {
     try {
-      await fetch(webhook, {
-        method: 'POST',
-        mode: 'no-cors',
-        headers: { 'Content-Type': 'text/plain' },
-        body: JSON.stringify({
-          fecha: formatDate(r.fecha),
-          orden: r.orden,
-          lote: r.lote,
-          producto: r.producto
-        })
+      const params = new URLSearchParams({
+        fecha: formatDate(r.fecha),
+        orden: r.orden,
+        lote: r.lote,
+        producto: r.producto
+      });
+      await fetch(webhook + '?' + params.toString(), {
+        method: 'GET',
+        mode: 'no-cors'
       });
       ok++;
     } catch(e) {
