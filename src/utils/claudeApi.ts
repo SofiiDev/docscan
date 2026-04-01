@@ -13,8 +13,11 @@ interface ContentBlock {
 }
 
 async function callClaude(content: ContentBlock[], systemPrompt?: string): Promise<string> {
-  const apiKey = import.meta.env.VITE_ANTHROPIC_API_KEY
-  if (!apiKey) throw new Error('VITE_ANTHROPIC_API_KEY no está configurada')
+  // Supports both build-time env var (Netlify auto-deploy) and runtime config.js (Netlify drop)
+  const apiKey =
+    import.meta.env.VITE_ANTHROPIC_API_KEY ||
+    (window as unknown as Record<string, string>).__ANTHROPIC_KEY__
+  if (!apiKey) throw new Error('API key no configurada. Editá el archivo config.js con tu clave de Anthropic.')
 
   const body = {
     model: MODEL,
